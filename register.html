@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>AI Job Finder - Registration</title>
+
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #eef3f8;
+            margin: 0;
+        }
+
+        header {
+            background-color: #123c69;
+            color: white;
+            text-align: center;
+            padding: 25px;
+        }
+
+        .form-container {
+            background: white;
+            width: 600px;
+            max-width: 90%;
+            margin: 35px auto;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 4px 15px #ccc;
+        }
+
+        h2 {
+            text-align: center;
+            color: #123c69;
+        }
+
+        label {
+            display: block;
+            margin-top: 15px;
+            font-weight: bold;
+        }
+
+        input,
+        select,
+        textarea {
+            width: 100%;
+            padding: 11px;
+            margin-top: 7px;
+            box-sizing: border-box;
+            border: 1px solid #bbb;
+            border-radius: 6px;
+        }
+
+        textarea {
+            height: 100px;
+        }
+
+        .submit-btn {
+            width: 100%;
+            padding: 14px;
+            margin-top: 25px;
+            background-color: #123c69;
+            color: white;
+            border: none;
+            border-radius: 7px;
+            font-size: 17px;
+            cursor: pointer;
+        }
+
+        .submit-btn:hover {
+            background-color: #0b2745;
+        }
+
+        .back {
+            display: block;
+            text-align: center;
+            margin-top: 20px;
+            color: #123c69;
+        }
+    </style>
+</head>
+
+<body>
+
+<header>
+    <h1>🤖 AI Job Finder</h1>
+    <p>Create Your Professional Job Profile</p>
+</header>
+
+
+<div class="form-container">
+
+    <h2>Job Seeker Registration</h2>
+
+    <form>
+
+        <label>Full Name</label>
+        <input type="text" placeholder="Enter your full name" required>
+
+
+        <label>Email Address</label>
+        <input type="email" placeholder="Enter your email" required>
+
+
+        <label>Phone Number</label>
+        <input type="tel" placeholder="Enter your phone number" required>
+
+
+        <label>Date of Birth</label>
+        <input type="date">
+
+
+        <label>Gender</label>
+        <select>
+            <option>Select Gender</option>
+            <option>Male</option>
+            <option>Female</option>
+            <option>Other</option>
+        </select>
+
+
+        <label>Highest Qualification</label>
+        <select required>
+            <option>Select Qualification</option>
+            <option>10th</option>
+            <option>12th</option>
+            <option>Diploma</option>
+            <option>B.E / B.Tech</option>
+            <option>B.Sc</option>
+            <option>BCA</option>
+            <option>M.E / M.Tech</option>
+            <option>MCA</option>
+            <option>MBA</option>
+            <option>Other</option>
+        </select>
+
+
+        <label>Specialization / Department</label>
+        <input type="text"
+               placeholder="Example: Artificial Intelligence & Data Science">
+
+
+        <label>College / University</label>
+        <input type="text"
+               placeholder="Enter college or university">
+
+
+        <label>Skills</label>
+        <input type="text"
+               placeholder="Example: Python, Java, SQL, HTML, AI">
+
+
+        <label>Experience</label>
+        <select>
+            <option>Fresher</option>
+            <option>0-1 Year</option>
+            <option>1-3 Years</option>
+            <option>3-5 Years</option>
+            <option>5+ Years</option>
+        </select>
+
+
+        <label>Preferred Job Role</label>
+        <input type="text"
+               placeholder="Example: Data Analyst">
+
+
+        <label>Preferred Job Location</label>
+        <input type="text"
+               placeholder="Example: Chennai, Bangalore, Remote">
+
+
+        <label>Expected Salary</label>
+        <input type="number"
+               placeholder="Enter expected salary">
+
+
+        <label>Work Preference</label>
+        <select>
+            <option>Select Preference</option>
+            <option>Work From Office</option>
+            <option>Work From Home</option>
+            <option>Hybrid</option>
+        </select>
+
+
+        <label>Upload Resume</label>
+        <input type="file" accept=".pdf,.doc,.docx">
+
+
+        <label>About Yourself</label>
+        <textarea
+            placeholder="Tell us about your career goals, interests and experience">
+        </textarea>
+
+
+        <button class="submit-btn" type="submit">
+            🚀 Create My Profile
+        </button>
+
+    </form>
+
+
+    <a class="back" href="index.html">
+        ← Back to AI Job Finder
+    </a>
+
+</div>
+
+</body>
+</html>

@@ -1,0 +1,232 @@
+/* JobPilot – frontend-only demo. All data lives in localStorage. */
+const KEYS = { user: "jobpilot_user", id: "jobpilot_user_id", apps: "jobpilot_applications", rem: "jobpilot_reminders" };
+const STATUSES = ["Pending Review", "Approved", "Applied", "Interview", "Rejected", "Selected"];
+
+/* ---------- Demo Job Data ---------- */
+const JOBS = [
+  { id: 1, company: "TechNova Solutions", title: "Junior Data Analyst", skills: ["Python", "SQL", "Excel"], qualification: "B.Tech", experience: "Fresher", location: "Chennai", salary: "₹25,000 - ₹40,000" },
+  { id: 2, company: "AI Vision Technologies", title: "AI/ML Intern", skills: ["Python", "Machine Learning", "SQL"], qualification: "B.Tech", experience: "Fresher", location: "Chennai", salary: "₹15,000 - ₹25,000" },
+  { id: 3, company: "WebCore Systems", title: "Junior Python Developer", skills: ["Python", "HTML", "JavaScript"], qualification: "B.Tech", experience: "Fresher", location: "Bangalore", salary: "₹30,000 - ₹45,000" },
+  { id: 4, company: "DataWorks", title: "Data Science Intern", skills: ["Python", "SQL", "Machine Learning"], qualification: "B.Tech", experience: "Fresher", location: "Remote", salary: "₹12,000 - ₹20,000" },
+  { id: 5, company: "CodeCraft Labs", title: "Frontend Developer", skills: ["HTML", "CSS", "JavaScript"], qualification: "B.Tech", experience: "Fresher", location: "Chennai", salary: "₹20,000 - ₹35,000" }
+];
+
+/* ---------- Helpers & storage ---------- */
+const $ = (s) => document.querySelector(s);
+const esc = (s) => String(s == null ? "" : s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const norm = (s) => String(s || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+const list = (s) => String(s || "").split(/[,;\n]/).map((x) => x.trim()).filter(Boolean);
+const read = (k, d) => { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch (e) { return d; } };
+const write = (k, v) => localStorage.setItem(k, JSON.stringify(v));
+const getUser = () => read(KEYS.user, null);
+const saveUser = (u) => write(KEYS.user, u);
+const getApplications = () => read(KEYS.apps, []);
+const saveApplications = (a) => write(KEYS.apps, a);
+const getReminders = () => read(KEYS.rem, []);
+const jobById = (id) => JOBS.find((j) => j.id == id);
+function flash(msg) { const t = document.createElement("div"); t.className = "toast"; t.textContent = msg; document.body.appendChild(t); setTimeout(() => t.remove(), 2500); }
+function copyFrom(id) {
+  const el = document.getElementById(id); const text = el.value !== undefined ? el.value : el.innerText;
+  (navigator.clipboard ? navigator.clipboard.writeText(text) : Promise.reject()).then(() => flash("Copied!"), () => { const t = document.createElement("textarea"); t.value = text; document.body.appendChild(t); t.select(); document.execCommand("copy"); t.remove(); flash("Copied!"); });
+}
+const tags = (arr, cls) => (arr.length ? arr.map((s) => `<span class="tag ${cls || ""}">${esc(s)}</span>`).join("") : "<span class='meta'>None</span>");
+
+/* ---------- AI-Assisted Matching Engine ---------- */
+function calculateMatch(u, j) {
+  const have = list(u.skills).map(norm);
+  const matching = j.skills.filter((s) => have.includes(norm(s)));
+  const missing = j.skills.filter((s) => !have.includes(norm(s)));
+  const skill = (matching.length / j.skills.length) * 40;
+  const qual = norm(u.qualification).includes(norm(j.qualification)) ? 20 : 0;
+  const exp = /fresher|0-1/i.test(u.experience || "") ? 15 : u.experience ? 10 : 0;
+  const locs = list(u.preferredLocation).map(norm);
+  const remoteOk = norm(j.location) === "remote" && (locs.includes("remote") || /home/i.test(u.workPreference || ""));
+  const loc = locs.includes(norm(j.location)) || remoteOk ? 10 : 0;
+  const role = norm(u.preferredRole), title = norm(j.title);
+  let r = 0;
+  if (role && (title.includes(role) || role.includes(title))) r = 15;
+  else if (String(u.preferredRole || "").toLowerCase().split(/\W+/).some((w) => w.length > 2 && j.title.toLowerCase().includes(w))) r = 8;
+  const reasons = [];
+  if (matching.length) reasons.push(`Your skills match ${matching.length} of ${j.skills.length} required skills`);
+  if (qual) reasons.push("your qualification matches");
+  if (exp) reasons.push("your experience level fits");
+  if (loc) reasons.push("the location fits your preference");
+  if (r) reasons.push("it relates to your preferred role");
+  const reason = reasons.length ? reasons.join(", ") + "." : "Limited overlap with your profile.";
+  return { score: Math.round(skill + qual + exp + loc + r), matching, missing, reason };
+}
+function getRecommendedJobs(u) {
+  return JOBS.map((j) => ({ ...j, match: calculateMatch(u, j) })).sort((a, b) => b.match.score - a.match.score);
+}
+
+/* ---------- Resume & cover letter (profile data only) ---------- */
+function generateTailoredResume(u, j) {
+  const m = calculateMatch(u, j);
+  const other = list(u.skills).filter((s) => !m.matching.map(norm).includes(norm(s)));
+  const edu = [u.qualification, u.specialization, u.college].filter(Boolean).join(", ");
+  return {
+    heading: `Tailored for ${j.title} at ${j.company}`, name: u.fullName, contact: [u.email, u.phone].filter(Boolean).join(" | "),
+    sections: [
+      ["Professional Summary", `${u.qualification || "Candidate"}${u.specialization ? " (" + u.specialization + ")" : ""} seeking the ${j.title} role at ${j.company}.${m.matching.length ? " Relevant skills: " + m.matching.join(", ") + "." : ""}${u.about ? "\n" + u.about : ""}`],
+      ["Relevant Skills", (m.matching.join(", ") || "None matching this job") + (other.length ? "\nOther skills: " + other.join(", ") : "")],
+      ["Relevant Projects", u.projects || "No projects listed in profile."],
+      ["Education", edu || "Not provided."],
+      ["Experience", u.experience || "Not provided."],
+      ["Extra Activities", u.activities || "None listed."]
+    ]
+  };
+}
+const resumeToText = (r) => [r.name, r.contact, r.heading, ""].concat(r.sections.map((s) => s[0].toUpperCase() + "\n" + s[1] + "\n")).join("\n");
+function generateCoverLetter(u, j) {
+  const m = calculateMatch(u, j);
+  const edu = [u.qualification, u.specialization && "in " + u.specialization, u.college && "from " + u.college].filter(Boolean).join(" ");
+  return `Dear Hiring Manager,\n\nI am writing to apply for the ${j.title} position at ${j.company}. I hold ${edu || "a qualification listed in my profile"}, and my experience level is: ${u.experience || "not specified"}.\n\nMy skills include ${list(u.skills).join(", ") || "those listed in my profile"}.${m.matching.length ? " These align with your requirements in " + m.matching.join(", ") + "." : ""}${u.projects ? "\n\nProjects I have worked on: " + u.projects : ""}${m.missing.length ? "\n\nI am keen to develop further skills in " + m.missing.join(", ") + "." : ""}\n\nThank you for considering my application. I would welcome the chance to discuss it.\n\nSincerely,\n${u.fullName}\n${u.email || ""}`;
+}
+
+/* ---------- Applications & reminders ---------- */
+function upsertApplication(j, fields) {
+  const apps = getApplications(); let a = apps.find((x) => x.jobId == j.id);
+  if (!a) { a = { id: Date.now(), jobId: j.id, company: j.company, title: j.title, location: j.location, salary: j.salary, score: calculateMatch(getUser(), j).score, appliedDate: new Date().toLocaleDateString(), approvalStatus: "Pending", status: "Pending Review", followUpDate: "" }; apps.push(a); }
+  Object.assign(a, fields); saveApplications(apps); return a;
+}
+function approveApplication(jobId) {
+  const j = jobById(jobId);
+  upsertApplication(j, { approvalStatus: "Approved", status: "Approved", resume: $("#rvResume").value, coverLetter: $("#rvCover").value, appliedDate: new Date().toLocaleDateString() });
+  $("#view").innerHTML = `<div class="card empty"><h2>✅ Application approved successfully.</h2><p class="meta">${esc(j.title)} at ${esc(j.company)} is saved as Approved. Nothing was sent to any employer.</p><a class="btn" href="application.html">View Applications</a></div>`;
+}
+function rejectApplication(jobId) {
+  saveApplications(getApplications().filter((a) => a.jobId != jobId)); flash("Application rejected and discarded."); location.hash = "jobs";
+}
+function updateApplicationStatus(id, status) {
+  const apps = getApplications(); const a = apps.find((x) => x.id == id); if (a) { a.status = status; saveApplications(apps); } loadApplications();
+}
+function setFollowUpDate(id, date) {
+  const apps = getApplications(); const a = apps.find((x) => x.id == id); if (!a) return;
+  a.followUpDate = date; saveApplications(apps);
+  const rem = getReminders().filter((r) => r.appId != id);
+  if (date) rem.push({ appId: id, title: a.title, company: a.company, date });
+  write(KEYS.rem, rem); flash(date ? "Reminder saved" : "Reminder cleared");
+}
+
+/* ---------- Registration / edit profile ---------- */
+const QUALS = ["B.E / B.Tech", "B.Sc", "BCA", "Diploma", "M.E / M.Tech", "MCA", "MBA", "12th", "Other"];
+const FIELDS = [
+  ["fullName", "Full Name", "text", 1], ["email", "Email", "email", 1], ["phone", "Phone Number", "tel", 1], ["dob", "Date of Birth", "date", 0],
+  ["gender", "Gender", ["Male", "Female", "Other"], 0], ["qualification", "Highest Qualification", QUALS, 1],
+  ["specialization", "Specialization / Department", "text", 0], ["college", "College / University", "text", 0],
+  ["skills", "Skills (comma separated)", "text", 1], ["experience", "Experience", ["Fresher", "0-1 Year", "1-3 Years", "3-5 Years", "5+ Years"], 1],
+  ["projects", "Projects", "textarea", 0], ["activities", "Extra Activities", "textarea", 0],
+  ["preferredRole", "Preferred Job Role", "text", 1], ["preferredLocation", "Preferred Job Location (comma separated)", "text", 1],
+  ["expectedSalary", "Expected Salary (₹ / month)", "number", 0], ["workPreference", "Work Preference", ["Work From Office", "Work From Home", "Hybrid"], 0],
+  ["resume", "Resume Upload (PDF / DOC / DOCX)", "file", 0], ["about", "About Yourself", "textarea", 0]
+];
+function initRegistration() {
+  const form = $("#registrationForm"); const editing = new URLSearchParams(location.search).has("edit"); const old = editing ? getUser() : null;
+  if (editing) $("#formTitle").textContent = "Edit your profile";
+  form.innerHTML = FIELDS.map(([n, l, t, req]) => {
+    const v = old ? esc(old[n] || "") : ""; const r = req ? "required" : "";
+    let input;
+    if (Array.isArray(t)) input = `<select name="${n}" ${r}><option value="">Select…</option>${t.map((o) => `<option ${old && old[n] === o ? "selected" : ""}>${o}</option>`).join("")}</select>`;
+    else if (t === "textarea") input = `<textarea name="${n}">${v}</textarea>`;
+    else if (t === "file") input = `<input type="file" name="resume" accept=".pdf,.doc,.docx" ${old && old.resumeName ? "" : "required"}>${old && old.resumeName ? `<small class="meta">Current: ${esc(old.resumeName)}</small>` : ""}`;
+    else input = `<input type="${t}" name="${n}" value="${v}" ${r}>`;
+    return `<label>${l}${req ? " *" : ""}${input}</label>`;
+  }).join("") + `<button type="submit" style="margin-top:20px">${editing ? "Save changes" : "Create my profile"}</button>`;
+  form.addEventListener("submit", (e) => {
+    e.preventDefault();
+    if (!form.checkValidity()) { form.reportValidity(); return; }
+    const data = Object.fromEntries(new FormData(form));
+    const file = form.elements.resume.files[0];
+    data.resumeName = file ? file.name : old ? old.resumeName : "";
+    delete data.resume;
+    saveUser(data);
+    if (!localStorage.getItem(KEYS.id)) localStorage.setItem(KEYS.id, "JP-" + Date.now().toString().slice(-6));
+    $("#formMsg").innerHTML = `<div class="msg">Profile saved! Taking you to your dashboard…</div>`;
+    setTimeout(() => (location.href = "dashboard.html"), 1000);
+  });
+}
+
+/* ---------- Dashboard ---------- */
+function jobCard(j) {
+  const m = j.match;
+  return `<div class="card"><div class="jobhead"><div><h3>${esc(j.title)}</h3><p class="meta">🏢 ${esc(j.company)} · 📍 ${esc(j.location)} · 💰 ${esc(j.salary)} <span class="demo">Demo Job Data</span></p></div><b style="font-size:1.5rem;color:var(--p)">${m.score}% Match</b></div>
+  <div class="bar"><i style="width:${m.score}%"></i></div>
+  <p><b>Matching Skills:</b> ${tags(m.matching)}</p><p><b>Missing Skills:</b> ${tags(m.missing, "miss")}</p>
+  <p><b>Why this job matches:</b> ${esc(m.reason)}</p>
+  <a class="btn ghost" href="#job=${j.id}">View Details</a><a class="btn ghost" href="#resume=${j.id}">Tailor Resume</a><a class="btn ghost" href="#cover=${j.id}">Generate Cover Letter</a><a class="btn" href="#review=${j.id}">Review Application</a></div>`;
+}
+function homeHtml(u, recs) {
+  const apps = getApplications(); const today = new Date().toISOString().slice(0, 10);
+  const up = getReminders().filter((r) => r.date >= today).sort((a, b) => a.date.localeCompare(b.date));
+  return `<div class="card"><h1>Welcome to JobPilot 👋</h1><p>Hi <b>${esc(u.fullName)}</b>, here are jobs ranked by the AI-Assisted Matching Engine.</p></div>
+  <div class="stats"><div class="card stat"><b>${recs.length}</b>Total Jobs Found</div><div class="card stat"><b>${recs[0].match.score}%</b>Best Match</div><div class="card stat"><b>${apps.length}</b>Applications</div><div class="card stat"><b>${apps.filter((a) => a.status === "Pending Review").length}</b>Pending Review</div></div>
+  <div class="card"><h3>🔔 Upcoming follow-ups</h3>${up.length ? up.map((r) => `<p class="meta">${esc(r.date)} — ${esc(r.title)} at ${esc(r.company)}</p>`).join("") : "<p class='meta'>No reminders yet. Set one from the Applications page.</p>"}</div>`;
+}
+function detailHtml(j) {
+  const m = calculateMatch(getUser(), j);
+  return `<div class="card"><h1>${esc(j.title)}</h1><p class="meta">🏢 ${esc(j.company)} · 📍 ${esc(j.location)} · 💰 ${esc(j.salary)} <span class="demo">Demo Job Data</span></p>
+  <p>Qualification: ${esc(j.qualification)} · Experience: ${esc(j.experience)}</p><p><b>Required skills:</b> ${tags(j.skills)}</p>
+  <h3>${m.score}% Match</h3><div class="bar"><i style="width:${m.score}%"></i></div><p><b>Matching:</b> ${tags(m.matching)}</p><p><b>Missing:</b> ${tags(m.missing, "miss")}</p><p>${esc(m.reason)}</p>
+  <a class="btn" href="#resume=${j.id}">Tailor Resume</a><a class="btn" href="#cover=${j.id}">Generate Cover Letter</a><a class="btn" href="#review=${j.id}">Review Application</a><a class="btn ghost" href="#jobs">Back to Dashboard</a></div>`;
+}
+function resumeHtml(u, j) {
+  const r = generateTailoredResume(u, j);
+  return `<h1>Tailored Resume</h1><div class="paper" id="resumeBox"><h2>${esc(r.name)}</h2><p class="meta">${esc(r.contact)}</p><p><b>${esc(r.heading)}</b></p>${r.sections.map((s) => `<h4>${s[0]}</h4><p>${esc(s[1])}</p>`).join("")}</div><p class="meta">Built only from your profile — nothing is invented.</p>
+  <button onclick="copyFrom('resumeBox')">Copy Resume</button><a class="btn" href="#review=${j.id}">Review Application</a><a class="btn ghost" href="#jobs">Back to Dashboard</a>`;
+}
+function coverHtml(u, j) {
+  return `<h1>Cover Letter</h1><div class="paper"><p id="coverBox">${esc(generateCoverLetter(u, j))}</p></div>
+  <button onclick="copyFrom('coverBox')">Copy Cover Letter</button><a class="btn" href="#review=${j.id}">Review Application</a><a class="btn ghost" href="#jobs">Back to Dashboard</a>`;
+}
+function reviewHtml(u, j) {
+  const m = calculateMatch(u, j); const saved = getApplications().find((a) => a.jobId == j.id);
+  upsertApplication(j, {});
+  return `<h1>Human Review Checkpoint</h1><p class="meta">Nothing is approved until you click Approve Application.</p>
+  <div class="card"><h3>${esc(j.title)} — ${esc(j.company)}</h3><p class="meta">📍 ${esc(j.location)} · 💰 ${esc(j.salary)} · <span class="demo">Demo Job Data</span></p><h3>${m.score}% Match</h3><div class="bar"><i style="width:${m.score}%"></i></div>
+  <p><b>Matching:</b> ${tags(m.matching)}</p><p><b>Missing:</b> ${tags(m.missing, "miss")}</p>
+  <label>Tailored Resume<textarea id="rvResume" readonly style="min-height:260px">${esc(saved && saved.resume ? saved.resume : resumeToText(generateTailoredResume(u, j)))}</textarea></label>
+  <label>Cover Letter<textarea id="rvCover" readonly style="min-height:260px">${esc(saved && saved.coverLetter ? saved.coverLetter : generateCoverLetter(u, j))}</textarea></label>
+  <button class="ghost" style="color:var(--p);background:#fff;border:1px solid var(--p);margin-top:16px" onclick="toggleEdit()">Edit</button><button class="danger" onclick="rejectApplication(${j.id})">Reject</button><button onclick="approveApplication(${j.id})">Approve Application</button></div>`;
+}
+function toggleEdit() { ["#rvResume", "#rvCover"].forEach((s) => { $(s).readOnly = !$(s).readOnly; }); flash($("#rvResume").readOnly ? "Editing off" : "You can now edit both texts"); }
+function profileHtml(u) {
+  const rows = [["Name", u.fullName], ["Email", u.email], ["Qualification", u.qualification], ["College", u.college], ["Skills", u.skills], ["Experience", u.experience], ["Preferred Role", u.preferredRole], ["Preferred Location", u.preferredLocation]];
+  return `<h1>Profile</h1><div class="card">${rows.map((r) => `<p><b>${r[0]}:</b> ${esc(r[1] || "—")}</p>`).join("")}<a class="btn" href="apply-register.html?edit=1">Edit Profile</a></div>`;
+}
+function loadDashboard() {
+  const u = getUser(), v = $("#view");
+  if (!u) { v.innerHTML = `<div class="card empty"><h2>Please create your profile first.</h2><a class="btn" href="apply-register.html">Create Profile</a></div>`; return; }
+  const [page, id] = (location.hash.slice(1) || "home").split("=");
+  const j = jobById(id), recs = getRecommendedJobs(u);
+  document.querySelectorAll("[data-nav]").forEach((a) => a.classList.toggle("on", a.dataset.nav === (["home", "jobs", "profile"].includes(page) ? page : "jobs")));
+  const jobsList = `<h2>🎯 Recommended Jobs</h2>${recs.map(jobCard).join("")}`;
+  if (page === "jobs") v.innerHTML = jobsList;
+  else if (page === "profile") v.innerHTML = profileHtml(u);
+  else if (j && page === "job") v.innerHTML = detailHtml(j);
+  else if (j && page === "resume") v.innerHTML = resumeHtml(u, j);
+  else if (j && page === "cover") v.innerHTML = coverHtml(u, j);
+  else if (j && page === "review") v.innerHTML = reviewHtml(u, j);
+  else v.innerHTML = homeHtml(u, recs) + jobsList;
+  window.scrollTo(0, 0);
+}
+
+/* ---------- Application tracker ---------- */
+function loadApplications() {
+  const box = $("#applicationList"), apps = getApplications();
+  if (!apps.length) { box.innerHTML = `<div class="card empty"><h2>No applications yet</h2><p class="meta">Review a job on your dashboard to start one.</p><a class="btn" href="dashboard.html#jobs">Go to Dashboard</a></div>`; return; }
+  box.innerHTML = apps.map((a) => `<div class="card"><div class="jobhead"><div><h3>${esc(a.title)}</h3><p class="meta">🏢 ${esc(a.company)} · 📍 ${esc(a.location)}</p></div><b style="color:var(--p)">${a.score}% Match</b></div>
+  <p class="meta">Application date: ${esc(a.appliedDate)}</p><p>Approval: <span class="badge s-${esc(a.approvalStatus)}">${esc(a.approvalStatus)}</span> Status: <span class="badge s-${a.status.replace(/\s/g, "")}">${esc(a.status)}</span></p>
+  <label>Change status<select onchange="updateApplicationStatus(${a.id},this.value)">${STATUSES.map((s) => `<option ${s === a.status ? "selected" : ""}>${s}</option>`).join("")}</select></label>
+  <label>Follow-up date<input type="date" value="${esc(a.followUpDate)}" onchange="setFollowUpDate(${a.id},this.value)"></label></div>`).join("");
+}
+
+/* ---------- Landing features ---------- */
+const FEATURES = ["Resume Analysis", "Smart Job Matching", "Match Score", "Missing Skill Detection", "Resume Tailoring", "Cover Letter Generation", "Human Approval", "Application Tracking", "Follow-up Reminders"];
+
+document.addEventListener("DOMContentLoaded", () => {
+  const p = document.body.dataset.page;
+  if (p === "landing") $("#featureGrid").innerHTML = FEATURES.map((f) => `<div class="card"><h3>✔ ${f}</h3></div>`).join("");
+  if (p === "register") initRegistration();
+  if (p === "dashboard") { loadDashboard(); window.addEventListener("hashchange", loadDashboard); }
+  if (p === "applications") loadApplications();
+});

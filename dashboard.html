@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>JobPilot Dashboard</title>
+
+    <style>
+
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            background: #f4f7fb;
+        }
+
+        header {
+            background: #123c69;
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
+
+        .container {
+            width: 90%;
+            max-width: 1100px;
+            margin: 30px auto;
+        }
+
+        .welcome {
+            background: white;
+            padding: 25px;
+            border-radius: 12px;
+            box-shadow: 0 3px 10px #ddd;
+        }
+
+        .welcome h2 {
+            color: #123c69;
+        }
+
+        .stats {
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+            margin-top: 20px;
+        }
+
+        .stat {
+            background: white;
+            padding: 20px;
+            flex: 1;
+            min-width: 180px;
+            border-radius: 10px;
+            box-shadow: 0 3px 10px #ddd;
+            text-align: center;
+        }
+
+        .stat h2 {
+            color: #123c69;
+        }
+
+        .job {
+            background: white;
+            margin-top: 20px;
+            padding: 22px;
+            border-radius: 12px;
+            box-shadow: 0 3px 10px #ddd;
+        }
+
+        .job h2 {
+            color: #123c69;
+        }
+
+        .score {
+            font-size: 25px;
+            font-weight: bold;
+        }
+
+        .skills {
+            margin-top: 10px;
+        }
+
+        .missing {
+            color: #b00020;
+        }
+
+        button {
+            background: #123c69;
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 7px;
+            cursor: pointer;
+            margin-top: 15px;
+        }
+
+        button:hover {
+            background: #0b2745;
+        }
+
+        #loading {
+            text-align: center;
+            font-size: 18px;
+        }
+
+    </style>
+
+</head>
+
+
+<body>
+
+<header>
+
+    <h1>🤖 JobPilot</h1>
+
+    <p>Autonomous Job Search & Application Agent</p>
+
+</header>
+
+
+<div class="container">
+
+
+    <div class="welcome">
+
+        <h2>Welcome to Your Job Dashboard 🚀</h2>
+
+        <p>
+            AI JobPilot analyzes your profile and finds
+            suitable job opportunities.
+        </p>
+
+    </div>
+
+
+    <div class="stats">
+
+        <div class="stat">
+
+            <h2 id="totalJobs">0</h2>
+
+            <p>Jobs Found</p>
+
+        </div>
+
+
+        <div class="stat">
+
+            <h2 id="topScore">0%</h2>
+
+            <p>Best Match</p>
+
+        </div>
+
+
+        <div class="stat">
+
+            <h2>AI</h2>
+
+            <p>Matching Engine</p>
+
+        </div>
+
+    </div>
+
+
+    <h2>🎯 Recommended Jobs</h2>
+
+    <div id="loading">
+
+        Searching for suitable jobs...
+
+    </div>
+
+
+    <div id="jobs"></div>
+
+
+</div>
+
+
+<script>
+
+    /*
+       Temporary user ID.
+
+       Later registration success-la
+       automatically user ID pass pannuvom.
+    */
+
+    const userId =
+        localStorage.getItem("user_id");
+
+
+    async function loadJobs() {
+
+        if (!userId) {
+
+            document.getElementById("loading").innerHTML =
+                "No user profile found. Please register first.";
+
+            return;
+        }
+
+
+        try {
+
+            const response = await fetch(
+                "http://127.0.0.1:8000/jobs/" + userId
+            );
+
+
+            const data = await response.json();
+
+
+            document.getElementById("loading").style.display =
+                "none";
+
+
+            document.getElementById("totalJobs").innerText =
+                data.total_jobs;
+
+
+            if (data.recommendations.length > 0) {
+
+                document.getElementById("topScore").innerText =
+                    data.recommendations[0].score + "%";
+
+            }
+
+
+            const jobsContainer =
+                document.getElementById("jobs");
+
+
+            jobsContainer.innerHTML = "";
+
+
+            data.recommendations.forEach(job => {
+
+                const jobCard =
+                    document.createElement("div");
+
+
+                jobCard.className = "job";
+
+
+                jobCard.innerHTML = `
+
+                    <h2>${job.title}</h2>
+
+                    <h3>🏢 ${job.company}</h3>
+
+                    <p>
+                        📍 ${job.location}
+                    </p>
+
+                    <p>
+                        💰 ${job.salary}
+                    </p>
+
+                    <p class="score">
+                        🎯 Match Score:
+                        ${job.score}%
+                    </p>
+
+                    <div class="skills">
+
+                        <strong>
+                            ✅ Matching Skills:
+                        </strong>
+
+                        <p>
+                            ${
+                                job.matching_skills.join(", ")
+                                || "None"
+                            }
+                        </p>
+
+                    </div>
+
+
+                    <div class="missing">
+
+                        <strong>
+                            ⚠️ Missing Skills:
+                        </strong>
+
+                        <p>
+                            ${
+                                job.missing_skills.join(", ")
+                                || "None"
+                            }
+                        </p>
+
+                    </div>
+
+
+                    <p>
+
+                        <strong>
+                            Why this job matched:
+                        </strong>
+
+                        <br>
+
+                        ${job.reason || "Profile-based match"}
+
+                    </p>
+
+
+                    <button
+                        onclick="viewJob('${job.application_url}')">
+
+                        View Job
+
+                    </button>
+
+                `;
+
+
+                jobsContainer.appendChild(
+                    jobCard
+                );
+
+            });
+
+        }
+
+        catch (error) {
+
+            document.getElementById("loading").innerText =
+                "❌ Backend connection failed.";
+
+            console.error(error);
+
+        }
+
+    }
+
+
+    function viewJob(url) {
+
+        window.open(
+            url,
+            "_blank"
+        );
+
+    }
+
+
+    loadJobs();
+
+</script>
+
+
+</body>
+
+</html>
